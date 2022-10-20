@@ -1,4 +1,3 @@
-import 'package:cozydiary/Data/dataResourse.dart';
 import 'package:flutter/material.dart';
 
 class DrawerWidget extends StatelessWidget {
@@ -21,7 +20,7 @@ class DrawerWidget extends StatelessWidget {
                   padding: EdgeInsets.only(right: 10),
                   child: CircleAvatar(
                     radius: 35,
-                    backgroundImage: NetworkImage(Image_List[3]),
+                    backgroundImage: NetworkImage(""),
                   ),
                 ),
                 Text(

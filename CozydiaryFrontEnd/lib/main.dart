@@ -1,19 +1,27 @@
-import 'package:cozydiary/Test/PostCoverTest.dart';
 import 'package:cozydiary/login_controller.dart';
 import 'package:cozydiary/pages/Home/HomePageTabbar.dart';
-import 'package:cozydiary/pages/Personal/Page/personal_page.dart';
+import 'package:cozydiary/pages/Home/widget/PickPhotoPage.dart';
+import 'package:cozydiary/pages/Home/controller/PostController.dart';
+import 'package:cozydiary/pages/Personal/Self/Page/personal_page.dart';
+import 'package:cozydiary/pages/Register/Page/SelectLikePage.dart';
 import 'package:cozydiary/register_controller.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+
+import 'package:hive_flutter/adapters.dart';
+import 'package:http/http.dart';
 import 'package:video_player/video_player.dart';
+import 'LocalDB/UidAndState.dart';
+import 'pages/Home/controller/HomePostController.dart';
 import 'firebase/firebase_options.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -22,6 +30,10 @@ void main() async {
         SystemUiOverlayStyle(statusBarColor: Colors.transparent);
     SystemChrome.setSystemUIOverlayStyle(systemUiOverlayStyle);
   }
+  await Hive.initFlutter();
+  Hive.registerAdapter(UidAndStateAdapter());
+  await Hive.openBox("UidAndState");
+  imageCache.clear();
   runApp(const MyApp());
 }
 
@@ -29,11 +41,10 @@ class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
   @override
   Widget build(BuildContext context) {
-    final registerController = Get.put(RegisterController());
-    final logincontroller = Get.put(LoginController());
     return GetMaterialApp(
       title: 'CozyDiary',
       theme: ThemeData(
+        //輸入框的Theme
         inputDecorationTheme: const InputDecorationTheme(
           counterStyle: TextStyle(color: Colors.black),
           labelStyle: TextStyle(color: Colors.black45),
@@ -56,23 +67,31 @@ class MyApp extends StatelessWidget {
             borderRadius: BorderRadius.all(Radius.circular(15)),
           ),
         ),
-        primaryColor: Color.fromARGB(255, 202, 175, 154),
+        //主題顏色(主要顏色)
+        primaryColor: Color.fromRGBO(234, 230, 228, 1),
+        //預設退回顏色
         scaffoldBackgroundColor: Colors.white,
+        //AppBar主題顏色
         appBarTheme: AppBarTheme(
-          backgroundColor: Color.fromARGB(255, 202, 175, 154),
+          backgroundColor: Color.fromRGBO(234, 230, 228, 1),
         ),
+        //Card主題顏色
         cardTheme: CardTheme(
             color: Colors.white,
             shape: Border.all(
-                color: Color.fromARGB(255, 195, 170, 150), width: 0.5)),
+                color: Color.fromRGBO(234, 230, 228, 1), width: 0.5)),
       ),
+      //路由
       routes: {
         "homepage": (context) => const HomePageTabbar(),
-        "personalpage": (context) => const PersonalPage(),
+        "personalpage": (context) => PersonalPage(
+              uid: Hive.box("UidAndState").get("uid"),
+            ),
       },
-      home: const MyHomePage(
-        title: 'CozyDiary',
+      home: MyHomePage(
+        title: '',
       ),
+      //右上角Debug標籤
       debugShowCheckedModeBanner: false,
     );
   }
@@ -90,6 +109,8 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final LoginController logincontroller = Get.put(LoginController());
   late VideoPlayerController _controller;
+  //Hive(Local資料表套件)BOX建立
+  var box = Hive.box("UidAndState");
 
   @override
   void initState() {
@@ -102,11 +123,38 @@ class _MyHomePageState extends State<MyHomePage> {
         });
       });
     _controller.setLooping(true);
+    FlutterNativeSplash.remove();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Login(context);
+    // return SelectLikePage();
+    var id = box.get("uid") ?? "";
+
+    /*先進行LOGIN的Future<funtion> -> 執行完會進行判斷->
+      -> 如果狀態為done(完成) -> 判斷是否有error -> 有：顯示Error；沒有：判斷回傳的Bool(是否為登入狀態與後端是否有此id資料)
+      -> 若為TRUE就進入主頁不用登入；False則進入登入頁面*/
+    return FutureBuilder(
+      initialData: false,
+      future: logincontroller.login(id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasError) {
+            return Text(snapshot.error.toString());
+          } else {
+            if (snapshot.data as bool) {
+              FlutterNativeSplash.remove();
+              return HomePageTabbar();
+            } else {
+              FlutterNativeSplash.remove();
+              return Login(context);
+            }
+          }
+        } else {
+          return Container();
+        }
+      },
+    );
   }
 
   Scaffold Login(BuildContext context) {
@@ -155,10 +203,17 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: SizedBox(
                     width: 250,
                     // ignore: deprecated_member_use
-                    child: RaisedButton(
+                    child: ElevatedButton(
                       onPressed: () {
                         logincontroller.loginWithGoogle();
                       },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            const Color.fromARGB(125, 255, 255, 255),
+                        shape: const RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.all(Radius.circular(20))),
+                      ),
                       child: const Text(
                         "登入",
                         style: TextStyle(
@@ -166,9 +221,6 @@ class _MyHomePageState extends State<MyHomePage> {
                             fontSize: 17.0,
                             fontWeight: FontWeight.w500),
                       ),
-                      color: const Color.fromARGB(125, 255, 255, 255),
-                      shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(20))),
                     ))),
           ),
 

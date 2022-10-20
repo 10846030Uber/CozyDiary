@@ -1,13 +1,15 @@
 import 'dart:convert';
 import 'package:cozydiary/Model/UserDataModel.dart' as userdata;
 import 'package:cozydiary/pages/Home/HomePageTabbar.dart';
+import 'package:cozydiary/pages/Register/Page/RegisterPage.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'main.dart';
-import 'pages/Register/RegisterPage.dart';
 
 class LoginController extends GetxController {
   var googleAccount = Rx<GoogleSignInAccount?>(null);
@@ -20,23 +22,35 @@ class LoginController extends GetxController {
   late String googlepic = "";
   late List<String> responseBody;
   var userData = <userdata.UserDataModel>[].obs;
+  var box = Hive.box("UidAndState");
+  static Map tempData = {};
 
   void loginWithGoogle() async {
     googleAccount.value = await googleSignIn.signIn();
-    final googleAuth = await googleAccount.value!.authentication;
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-    final authResult = await _auth.signInWithCredential(credential);
-    final User? user = authResult.user;
-    googleuser = user;
+    final user = googleAccount.value;
+    // final googleAuth = await googleAccount.value!.authentication;
+    // final credential = GoogleAuthProvider.credential(
+    //   accessToken: googleAuth.accessToken,
+    //   idToken: googleAuth.idToken,
+    // );
+    // final authResult = await _auth.signInWithCredential(credential);
+    // final User? user = authResult.user;
+    // googleuser = user;
     id = googleSignIn.currentUser!.id;
+    box.put("uid", id);
+    email = user!.email;
+    googlepic = user.photoUrl!;
 
-    email = user!.email!;
-    googlepic = user.providerData[0].photoURL!;
+    tempData = {'uid': id, 'email': email, 'pic': googlepic};
+    print(tempData);
 
-    await login();
+    bool isLogin = await login(id);
+    print(isLogin);
+    if (isLogin) {
+      Get.to(HomePageTabbar());
+    } else {
+      Get.to(RegisterPage());
+    }
     // toregisterpage();
   }
 
@@ -45,17 +59,27 @@ class LoginController extends GetxController {
     Get.to(const MyHomePage(
       title: '',
     ));
+    box.put("uid", null);
   }
 
-  login() async {
+  Future<bool> login(String id) async {
+    bool isLogin = false;
     var response = await http
         .get(Uri.parse('http://140.131.114.166:80/getUser?gid=' + id));
     var responseBody = jsonDecode(response.body);
-    print(responseBody);
-    if (responseBody['data'] != null && responseBody['data']['googleId'] == id)
-      Get.to(HomePageTabbar());
-    else
-      Get.to(RegisterPage());
+
+    if (responseBody['status'] == 200 &&
+        responseBody['data']['googleId'] == id &&
+        id != '') {
+      isLogin = true;
+      print("login done. isLogin = " + isLogin.toString());
+      // Get.to(HomePageTabbar());
+    } else {
+      isLogin = false;
+    }
+
+    // Get.to(RegisterPage());
+    return isLogin;
   }
 
   void post() async {
@@ -109,13 +133,6 @@ class LoginController extends GetxController {
     // if (responseBody != null) {
     //   Get.to(HomePageTabbar());
     // }
-  }
-
-  void testget() async {
-    var response = await http
-        .get(Uri.parse('http://yapi.smart-xwork.cn/mock/152435/userRegister'));
-    var responseBody = jsonDecode(response.body);
-    print(responseBody);
   }
 
   void printid() async {
