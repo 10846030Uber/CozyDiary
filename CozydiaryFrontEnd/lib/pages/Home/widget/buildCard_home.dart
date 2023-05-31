@@ -1,126 +1,163 @@
-import 'package:cozydiary/Model/PostCoverModel.dart';
-import 'package:cozydiary/pages/Personal/OtherPerson/Controller/OtherPersonController.dart';
-import 'package:cozydiary/PostJsonService.dart';
+import 'package:cozydiary/Model/postCoverModel.dart';
+import 'package:cozydiary/pages/Home/controller/changePageController.dart';
+import 'package:cozydiary/pages/Home/controller/categoryPostController.dart';
+import 'package:cozydiary/pages/Personal/OtherPerson/Controller/otherPersonController.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hive/hive.dart';
 import 'package:like_button/like_button.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../screen_widget/viewPostScreen.dart';
-import '../../Personal/OtherPerson/Page/OtherPersonPage.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../../Personal/OtherPerson/Page/otherPersonPage.dart';
 
 class BuildCardHome extends StatelessWidget {
-  final List<PostCoverData> PostCovers;
+  final String uid;
+  final List<PostCoverData> postCovers;
   final int index;
-  const BuildCardHome({Key? key, required this.PostCovers, required this.index})
+  final String pid;
+  final String category;
+  final String cid;
+  BuildCardHome(
+      {Key? key,
+      required this.postCovers,
+      required this.index,
+      required this.uid,
+      required this.pid,
+      required this.category,
+      required this.cid})
       : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    
     return InkWell(
       onTap: () async {
-        await PostService.getPostDetail(
-            key.toString().split(",")[1].replaceAll(RegExp(r"[^\s\w]"), ""));
-        Get.to(
-          ViewPostScreen(),
-          transition: Transition.fadeIn,
-        );
+        bool result = await Get.to(
+            () => ViewPostScreen(
+                  ownerPicUrl: postCovers[index].pic,
+                  ownerUid: postCovers[index].uid,
+                  username: postCovers[index].username,
+                  pid: postCovers[index].pid.toString(),
+                ),
+            transition: Transition.cupertino);
+        if (result) {
+          Get.find<CategoryPostController>(tag: category).getPostCover(cid);
+        }
       },
-      child: Hero(
-        tag: index.toString(),
-        child: Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15.0),
-          ),
-          elevation: 1,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              CachedNetworkImage(
-                imageUrl: PostCovers[index].cover,
-                fit: BoxFit.cover,
-                errorWidget: ((context, url, error) =>
-                    Image.asset("assets/images/yunhan.jpg", fit: BoxFit.cover)),
-              ),
-              // Image.network(
-              //   PostCovers[index].cover,
-              //   errorBuilder: (context, error, stackTrace) {
-              //     return Image.asset("assets/images/yunhan.jpg",
-              //         fit: BoxFit.cover);
-              //   },
-              //   fit: BoxFit.cover,
-              // ),
-              // FadeInImage(
-              //   fadeInDuration: Duration(milliseconds: 100),
-              //   image: NetworkImage(PostCovers[index].cover),
-              //   placeholder: AssetImage("assets/images/yunhan.jpg"),
-              //   imageErrorBuilder: (context, error, stackTrace) {
-              //     return Image.asset('asset/images/logo/logoS.png',
-              //         fit: BoxFit.fitWidth);
-              //   },
-              //   fit: BoxFit.fitWidth,
-              // ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(15, 15, 15, 8),
-                child: Text(PostCovers[index].title,
-                    softWrap: true,
-                    maxLines: 2,
-                    style: TextStyle(
-                      color: Colors.black,
-                    )),
-              ),
-              Padding(
-                  padding: EdgeInsets.all(12).copyWith(top: 0, bottom: 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Padding(
-                              padding: EdgeInsets.only(right: 5),
-                              child: InkWell(
-                                child: CircleAvatar(
-                                  radius: 12,
-                                  backgroundImage:
-                                      NetworkImage(PostCovers[index].pic),
-                                ),
-                                onTap: () {
-                                  OtherPersonPageController
-                                      otherPersonPageController =
-                                      Get.put(OtherPersonPageController());
-                                  otherPersonPageController.otherUid = key
-                                      .toString()
-                                      .split(",")[0]
-                                      .replaceAll(RegExp(r"[^\s\w]"), "");
-
-                                  otherPersonPageController.getOtherUserData();
-                                  otherPersonPageController.getUserPostCover();
-                                  Get.to(() => OtherPersonalPage());
-                                },
-                              )),
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                PostCovers[index].username,
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black),
-                              )
-                            ],
-                          )
-                        ],
+      child: Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15.0),
+        ),
+        elevation: 1,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              // constraints: BoxConstraints(maxHeight: 300),
+              // height: 100,
+              // decoration: BoxDecoration(
+              //     image: DecorationImage(
+              //         fit: BoxFit.cover,
+              //         image: NetworkImage(postCovers[index].cover))),
+              child: Center(
+                child: Image.network(
+                  postCovers[index].cover,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Shimmer.fromColors(
+                      baseColor: Colors.grey[300]!,
+                      highlightColor: Colors.grey[100]!,
+                      child: Container(
+                        color: Colors.grey[100],
+                        width: MediaQuery.of(context).size.width,
+                        height: 50,
                       ),
-                      LikeButton(
-                        likeCount: PostCovers[index].likes,
-                        isLiked: false,
-                        size: 15,
-                      )
-                    ],
-                  ))
-            ],
-          ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(15, 15, 15, 8),
+              child: Text(postCovers[index].title,
+                  softWrap: true,
+                  maxLines: 2,
+                  style: TextStyle(
+                      // color: Colors.black,
+                      )),
+            ),
+            Padding(
+              padding: EdgeInsets.all(12).copyWith(top: 0, bottom: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  Padding(
+                      padding: EdgeInsets.only(right: 5),
+                      child: InkWell(
+                        child: CircleAvatar(
+                          radius: 15,
+                          backgroundImage: NetworkImage(postCovers[index].pic),
+                        ),
+                        onTap: () {
+                          var userUid = Hive.box("UidAndState").get("uid");
+
+                          if (uid != userUid) {
+                            Get.put(OtherPersonPageController(otherUid: uid));
+                            Get.to(
+                                () => OtherPersonalPage(
+                                    key: UniqueKey(), uid: uid),
+                                transition: Transition.fadeIn);
+                          } else {
+                            Get.find<ChangePageTabbarController>()
+                                .selectedIndex
+                                .value = 2;
+                          }
+                          ;
+                          // GetBuilder<OtherPersonPageController>(
+                          //     init: OtherPersonPageController(
+                          //         otherUid: uid),
+                          //     builder: (otherPersonPageController) {
+                          //       return OtherPersonalPage(
+                          //           key: UniqueKey(), uid: uid);
+                          //     }));
+                        },
+                      )),
+                  Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          postCovers[index].username,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            // color: Colors.black
+                          ),
+                        )
+                      ],
+                    ),
+                  ),
+                  Expanded(child: Container()),
+                  Icon(
+                    Icons.favorite,
+                    color: Colors.red,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4.0),
+                    child: Text(postCovers[index].likes.toString()),
+                  )
+                  // LikeButton(
+                  //   likeCount: postCovers[index].likes,
+                  //   isLiked: true,
+                  //   size: 15,
+                  // ),
+                ],
+              ),
+            )
+          ],
         ),
       ),
     );

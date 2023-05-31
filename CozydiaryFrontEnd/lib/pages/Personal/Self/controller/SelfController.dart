@@ -1,58 +1,47 @@
-import 'dart:convert';
-import 'dart:ffi';
-
-import 'package:cozydiary/Model/CatchPersonalModel.dart';
-import 'package:cozydiary/Model/EditUserModel.dart';
-import 'package:cozydiary/Model/PostReceiveModel.dart';
-import 'package:cozydiary/pages/Personal/Service/PersonalService.dart';
-import 'package:dio/dio.dart';
+import 'package:cozydiary/pages/Personal/Service/personalService.dart';
 import 'package:get/get.dart' hide FormData, MultipartFile, Response;
-import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
-import 'package:firebase_auth/firebase_auth.dart' as firebaseauth;
-
-import '../../../../Model/PostCoverModel.dart';
+import '../../../../Model/catchPersonalModel.dart';
+import '../../../../Model/postCoverModel.dart';
 import '../../../../Model/trackerListModel.dart';
 
 class SelfPageController extends GetxController {
-  //記錄自介高度
-  var constraintsHeight = 0.0.obs;
-  //是否有延展
-  var readmore = true.obs;
-  //高度差
-  var difference = 0.0;
-  //是否再載入
-  var isLoading = true.obs;
-  //使用者id
-  var uid = "";
-  var userData = Data(
-      uid: 0,
-      googleId: "",
-      name: "",
-      age: 0,
-      sex: 0,
-      introduction: "",
-      pic: "",
-      birth: [],
-      createTime: [],
-      email: "",
-      tracker: [],
-      follower: [],
-      userCategoryList: []).obs;
+  var constraintsHeight = 0.0.obs; //記錄自介高度
+  var readmore = true.obs; //是否有延展
+  var difference = 0.0; //高度差
+  var isLoading = true.obs; //是否再載入
+  var uid = ""; //使用者id
+  var userData = UserData(
+          uid: 0,
+          googleId: "",
+          name: "",
+          age: 0,
+          sex: 0,
+          introduction: "",
+          pic: "",
+          birth: [],
+          createTime: [],
+          email: "",
+          tracker: [],
+          follower: [],
+          userCategoryList: [],
+          picResize: "")
+      .obs; //使用者資料暫存
   var postCover = <PostCoverData>[].obs;
+  var collectedPostCover = <PostCoverData>[].obs;
   var box = Hive.box("UidAndState");
   var trackerList = <TrackerList>[];
   @override
   void onInit() {
     uid = box.get("uid");
-
     getUserData();
     getUserPostCover(uid);
+    getCollectedPostCover(uid);
 
     super.onInit();
   }
 
-  void getUserData() async {
+  Future<void> getUserData() async {
     try {
       isLoading(true);
 
@@ -62,24 +51,14 @@ class SelfPageController extends GetxController {
           userData.value = UserData.data;
         }
       }
-    } finally {}
+    } finally {
+      isLoading(false);
+    }
   }
 
-  // void getOtherUserData(String otherUserId) async {
-  //   try {
-  //     isLoading(true);
-
-  //     var UserData = await PersonalService.fetchUserData(otherUserId);
-  //     if (UserData != null) {
-  //       if (UserData.status == 200) {
-  //         userData.value = UserData.data;
-  //       }
-  //     }
-  //   } finally {}
-  // }
-
-  void getUserPostCover(String uid) async {
+  Future<void> getUserPostCover(String uid) async {
     try {
+      isLoading(true);
       var Posts = await PersonalService.fetchUserPostCover(uid);
       if (Posts != null) {
         if (Posts.status == 200) {
@@ -91,74 +70,33 @@ class SelfPageController extends GetxController {
     }
   }
 
-  // void getOtherUserPostCover(String otherUserId) async {
-  //   try {
-  //     var Posts = await PersonalService.fetchUserPostCover(otherUserId);
-  //     if (Posts != null) {
-  //       if (Posts.status == 200) {
-  //         postCover.value = Posts.data;
-  //       }
-  //     }
-  //   } finally {
-  //     isLoading(false);
-  //   }
-  // }
-  double getWidgetHeight(GlobalKey key) {
-    RenderBox renderBox = key.currentContext?.findRenderObject() as RenderBox;
-    return renderBox.size.height;
-  }
-
-  void getConstraintsHeight(var height) {
-    constraintsHeight.value = height;
-    update();
-  }
-
-  void onTabReadmore() {
-    readmore.value = !readmore.value;
-    print(readmore.value);
-  }
-
-  void increaseAppbarHeight() {
-    constraintsHeight.value = constraintsHeight.value + difference;
-  }
-
-  void reduceAppbarHeight() {
-    constraintsHeight.value = constraintsHeight.value - difference;
-  }
-
-  void getTracker() async {
+  Future<void> getCollectedPostCover(String uid) async {
     try {
-      var trackerResponse = await PersonalService.getTracker(uid);
-
-      if (trackerResponse != null) {
-        if (trackerResponse.message == 200) {
-          trackerList = trackerResponse.data;
+      isLoading(true);
+      var Posts = await PersonalService.fetchUserCollectedPostCover(uid);
+      if (Posts != null) {
+        if (Posts.status == 200) {
+          collectedPostCover.value = Posts.data;
         }
       }
-    } finally {}
+    } finally {
+      isLoading(false);
+    }
   }
 
-  Future<String> updateUser(EditUserModel editUserModel) async {
-    String updateUserJsonData = editUserModelToJson(editUserModel);
-    var response = await PersonalService.updateUser(updateUserJsonData);
-
-    if (response.status == 200) {
-      getUserData();
-    }
-    return response.message;
-  }
-
-  Future<int> changeProfilePic(String picUrl) async {
-    FormData fileFormData = FormData();
-    String picName = picUrl.split("/").last;
-    fileFormData.files.add(MapEntry(
-        "file", await MultipartFile.fromFile(picUrl, filename: picName)));
-    var response =
-        await PersonalService.changeProfilePic(fileFormData, uid, picName);
-    if (response.status == 200) {
-      getUserData();
+  Future<bool> checkIsCollect(String pid) async {
+    bool result = false;
+    if (collectedPostCover.isEmpty) {
+      result = false;
+    } else {
+      for (var collectpost in collectedPostCover) {
+        if (collectpost.pid.toString() == pid) {
+          result = true;
+          break;
+        }
+      }
     }
 
-    return response.status;
+    return result;
   }
 }

@@ -1,40 +1,44 @@
+import 'package:cozydiary/pages/Personal/OtherPerson/Widget/OtherPerson_PostGridView.dart';
+import 'package:expandable/expandable.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:get/get.dart';
-import 'package:hive/hive.dart';
-import 'package:readmore/readmore.dart';
-import '../Controller/OtherPersonController.dart';
-import '../Controller/OtherPersonTabbarController.dart';
+import 'package:shimmer/shimmer.dart';
+import '../../TrackerPage/Page/trackerAndFollowerPage.dart';
+import '../Controller/otherPersonController.dart';
+import '../Controller/otherPersonTabbarController.dart';
 import '../Widget/OtherPerson_CollectGridView.dart';
-import '../Widget/OtherPerson_PostGridView.dart';
 
 class OtherPersonalPage extends StatelessWidget {
-  const OtherPersonalPage({Key? key}) : super(key: key);
-
+  const OtherPersonalPage({Key? key, required this.uid}) : super(key: key);
+  final String uid;
   @override
   Widget build(BuildContext context) {
-    return PersonalView();
+    Get.put(OtherPersonPageController(otherUid: uid), tag: uid);
+    return PersonalView(
+      uid: uid,
+    );
   }
 }
 
 class PersonalView extends StatelessWidget {
-  const PersonalView({
+  PersonalView({
     Key? key,
+    required this.uid,
   }) : super(key: key);
+  final String uid;
 
   @override
   Widget build(BuildContext context) {
+    var otherPersonPageController =
+        Get.find<OtherPersonPageController>(tag: uid);
     final _tabController = Get.put(OtherPersonTabController());
-    final _introductionKey = GlobalKey();
-    late double oldIntroductionHeight = 0.0;
-    final otherPersonPageController = Get.find<OtherPersonPageController>();
 
     Widget _buildSliverHeaderWidget() {
       return SliverPersistentHeader(
         pinned: true,
         delegate: _SliverHeaderDelegate(
-            MediaQuery.of(context).size.height * 0.5,
-            70,
-            otherPersonPageController),
+            MediaQuery.of(context).size.height * 0.5, 70, uid),
       );
     }
 
@@ -42,209 +46,139 @@ class PersonalView extends StatelessWidget {
       return SliverPersistentHeader(
           pinned: true,
           floating: true,
-          delegate: _TabbarDelegate(
-            TabBar(
-                controller: controller,
-                indicatorWeight: 2,
-                indicatorColor: Color.fromARGB(255, 175, 152, 100),
-                labelColor: Colors.black,
-                indicatorSize: TabBarIndicatorSize.label,
-                isScrollable: true,
-                labelPadding: EdgeInsets.symmetric(horizontal: 40),
-                tabs: tab),
-          ));
-    }
-
-    double _getWidgetHeight(GlobalKey key) {
-      RenderBox renderBox = key.currentContext?.findRenderObject() as RenderBox;
-      return renderBox.size.height;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback(
-      (timeStamp) {
-        otherPersonPageController.constraintsHeight.value =
-            _getWidgetHeight(_introductionKey) + 18;
-      },
-    );
-
-    void _refreshHeight() {
-      if (otherPersonPageController.difference == 0.0) {
-        otherPersonPageController.difference =
-            _getWidgetHeight(_introductionKey) - oldIntroductionHeight;
-        print(otherPersonPageController.difference);
-        otherPersonPageController.increaseAppbarHeight();
-      } else if (otherPersonPageController.readmore.value) {
-        otherPersonPageController.reduceAppbarHeight();
-      } else {
-        otherPersonPageController.increaseAppbarHeight();
-      }
+          delegate: _TabbarDelegate(TabBar(
+              controller: controller,
+              indicatorWeight: 2,
+              indicatorSize: TabBarIndicatorSize.label,
+              isScrollable: true,
+              labelPadding: EdgeInsets.symmetric(horizontal: 40),
+              tabs: tab)));
     }
 
     Widget _DetailSliverWidget() {
       return SliverToBoxAdapter(
-        child: Container(
-          constraints: BoxConstraints.tightFor(
-              width: MediaQuery.of(context).size.width,
-              height: otherPersonPageController.constraintsHeight.value),
-          color: Colors.white,
-          height: 90,
-          child: Column(
-            children: <Widget>[
-              Divider(
-                color: Colors.black54,
-                indent: 40,
-                endIndent: 40,
-                height: 3,
-              ),
-              Padding(
+        child: Column(
+          children: <Widget>[
+            Divider(
+              indent: 40,
+              endIndent: 40,
+              height: 3,
+            ),
+            ExpandableNotifier(
+              child: Container(
+                  constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.8),
+                  alignment: Alignment.centerLeft,
                   padding: const EdgeInsets.fromLTRB(0, 15, 0, 0),
-                  child: Container(
-                    constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width * 0.8),
-                    alignment: Alignment.centerLeft,
-                    child: ReadMoreText(
-                      otherPersonPageController.userData.value.introduction ==
-                              ""
-                          ? "這個人很無聊，什麼都沒有留呢~"
-                          : otherPersonPageController
-                              .userData.value.introduction,
-                      key: _introductionKey,
-                      colorClickableText: Color.fromARGB(255, 120, 118, 118),
-                      trimLines: 3,
-                      trimMode: TrimMode.Line,
-                      trimCollapsedText: "更多",
-                      trimExpandedText: "減少",
-                      style: TextStyle(
-                        color: Color.fromARGB(255, 65, 65, 65),
+                  child: ExpandableButton(
+                    child: ExpandablePanel(
+                      theme: ExpandableThemeData(
+                        hasIcon: false,
                       ),
-                      callback: (isExpand) {
-                        oldIntroductionHeight =
-                            _getWidgetHeight(_introductionKey);
-                        otherPersonPageController.onTabReadmore();
-                        WidgetsBinding.instance.addPostFrameCallback(
-                            (timeStamp) => _refreshHeight());
-                      },
+                      collapsed: Text(
+                        otherPersonPageController.userData.value.introduction,
+                        maxLines: 3,
+                        softWrap: true,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      expanded: Text(otherPersonPageController
+                          .userData.value.introduction),
+                      builder: (_, collapsed, expanded) => Expandable(
+                        collapsed: collapsed,
+                        expanded: expanded,
+                      ),
                     ),
-                    // child: Introduction(
-                    //     // "BOCAN選貨店《全館限時免運中》誠實賣場 只有全新公司貨營業時間：13:00-23:00//行銷徵才中 詳情請見精選限時//如何選購：小盒子私訊/7-11賣貨便有想要ㄉ鞋子沒在版上可以帶圖/尺寸 小盒子我們🛒《有任何問題或需求歡迎隨時小盒子》lkfgjofdsijglkfdsjglfsdjglkfdsjglkfdj;sh;jsg;ihojlgfdsjhlkfdsgmblfsgnjhjsrogjgfdoihjgfdihjogfdijsafkadjfkdsjfljsdgkdfgkldsgkljglkjgkfjdskgjkldsgjlskdjglkfdss",
-                    //     // otherPersonPageController.userData.value.introduction == ""?
-                    //     "這個人很無聊，什麼都沒有留呢~",
-                    //     // : otherPersonPageController.userData.value.introduction,
-                    //     3),
                   )),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
 
-    Widget followerWidget(
-        int trackerCount, int followingCount, int postCount, eventCount) {
-      return Wrap(
-        spacing: 25,
-        children: <Widget>[
-          Column(children: <Widget>[
-            Text(
-              '$followingCount',
-              style: const TextStyle(
-                fontSize: 20,
-                color: Color.fromARGB(255, 0, 0, 0),
-              ),
+    return Obx((() => otherPersonPageController.isLoading.value
+        ? SpinKitFadingCircle(
+            size: 50, color: Theme.of(context).colorScheme.primary)
+        : Scaffold(
+            extendBodyBehindAppBar: true,
+            body: RefreshIndicator(
+              notificationPredicate: ((notification) {
+                return true;
+              }),
+              onRefresh: (() async {
+                otherPersonPageController.getOtherUserData();
+                otherPersonPageController.getUserPostCover();
+              }),
+              child: NestedScrollView(
+                  headerSliverBuilder: (context, innerBoxIsScrolled) {
+                    return [
+                      _buildSliverHeaderWidget(),
+                      Obx(() => _DetailSliverWidget()),
+                      _buildTabbarWidget(
+                          _tabController.controller, _tabController.tabs)
+                    ];
+                  },
+                  body: TabBarView(
+                    controller: _tabController.controller,
+                    children: [
+                      Obx(() => otherPersonPageController.postCover.isEmpty
+                          ? Center(
+                              child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Opacity(
+                                  opacity: 0.5,
+                                  child: Expanded(
+                                    child: Icon(Icons.image_rounded,
+                                        size:
+                                            MediaQuery.of(context).size.width *
+                                                0.3,
+                                        color:
+                                            Theme.of(context).iconTheme.color),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    "此人目前無貼文",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                )
+                              ],
+                            ))
+                          : InitOtherPersonPostGridView(uid: uid)),
+                      Obx(() => otherPersonPageController
+                              .collectedPostCover.isEmpty
+                          ? Center(
+                              child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Opacity(
+                                  opacity: 0.5,
+                                  child: Expanded(
+                                    child: Icon(Icons.image_rounded,
+                                        size:
+                                            MediaQuery.of(context).size.width *
+                                                0.3,
+                                        color:
+                                            Theme.of(context).iconTheme.color),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    "尚未收藏貼文",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                )
+                              ],
+                            ))
+                          : InitOtherPersonCollectGridView(
+                              otherUid: uid,
+                            ))
+                    ],
+                  )),
             ),
-            const Text(
-              '追隨中',
-              style:
-                  TextStyle(fontSize: 16, color: Color.fromARGB(255, 0, 0, 0)),
-            ),
-          ]),
-          Column(children: <Widget>[
-            Text(
-              '$trackerCount',
-              style: const TextStyle(
-                fontSize: 20,
-                color: Color.fromARGB(255, 0, 0, 0),
-              ),
-            ),
-            const Text(
-              '粉絲',
-              style:
-                  TextStyle(fontSize: 16, color: Color.fromARGB(255, 0, 0, 0)),
-            ),
-          ]),
-          Column(children: <Widget>[
-            Text(
-              '$postCount',
-              style: const TextStyle(
-                fontSize: 20,
-                color: Color.fromARGB(255, 0, 0, 0),
-              ),
-            ),
-            const Text(
-              '貼文',
-              style:
-                  TextStyle(fontSize: 16, color: Color.fromARGB(255, 0, 0, 0)),
-            ),
-          ]),
-          Column(children: <Widget>[
-            Text(
-              '$eventCount',
-              style: const TextStyle(
-                fontSize: 20,
-                color: Color.fromARGB(255, 0, 0, 0),
-              ),
-            ),
-            const Text(
-              '聚集數',
-              style:
-                  TextStyle(fontSize: 16, color: Color.fromARGB(255, 0, 0, 0)),
-            ),
-          ]),
-        ],
-      );
-    }
-
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      backgroundColor: Colors.white,
-      body:
-          // CustomScrollView(
-          //   slivers: [
-          //     SliverPersistentHeaderWidget(
-          //         _tabController.controller, _tabController.tabs),
-          //   ],
-          // )
-          NestedScrollView(
-              headerSliverBuilder: (context, innerBoxIsScrolled) {
-                return [
-                  _buildSliverHeaderWidget(),
-                  Obx(() => _DetailSliverWidget()),
-                  _buildTabbarWidget(
-                      _tabController.controller, _tabController.tabs)
-                ];
-              },
-              body: TabBarView(
-                controller: _tabController.controller,
-                children: [
-                  Obx(() => otherPersonPageController.postCover.value.isEmpty
-                      ? Center(
-                          child: Container(
-                          child: Icon(
-                            Icons.image_rounded,
-                            size: MediaQuery.of(context).size.width * 0.3,
-                          ),
-                        ))
-                      : InitOtherPersonPostGridView()),
-                  otherPersonPageController.postCover.value.isEmpty
-                      ? Center(
-                          child: Container(
-                          child: Icon(
-                            Icons.image_rounded,
-                          ),
-                        ))
-                      : InitOtherPersonCollectGridView()
-                ],
-              )),
-    );
+          )));
   }
 }
 
@@ -258,7 +192,6 @@ class _TabbarDelegate extends SliverPersistentHeaderDelegate {
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
-      color: Colors.white,
       child: Center(child: tab),
     );
   }
@@ -276,15 +209,11 @@ class _TabbarDelegate extends SliverPersistentHeaderDelegate {
 }
 
 class _SliverHeaderDelegate extends SliverPersistentHeaderDelegate {
-  _SliverHeaderDelegate(
-    this.expandedHeight,
-    this.tabbarHeight,
-    this._otherPersonPageController,
-  );
+  _SliverHeaderDelegate(this.expandedHeight, this.tabbarHeight, this.uid);
 
   final double expandedHeight;
   final double tabbarHeight;
-  final OtherPersonPageController _otherPersonPageController;
+  final String uid;
 
   @override
   double get minExtent => 0;
@@ -294,6 +223,8 @@ class _SliverHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
+    var _otherPersonPageController =
+        Get.find<OtherPersonPageController>(tag: uid);
     Widget followerWidget(
         int trackerCount, int followerCount, int postCount, eventCount) {
       return Row(
@@ -305,57 +236,66 @@ class _SliverHeaderDelegate extends SliverPersistentHeaderDelegate {
                 '$trackerCount',
                 style: const TextStyle(
                   fontSize: 18,
-                  color: Color.fromARGB(255, 0, 0, 0),
                 ),
               ),
               const Text(
                 '追隨中',
-                style: TextStyle(
-                    fontSize: 14, color: Color.fromARGB(255, 0, 0, 0)),
               ),
             ]),
-            onTap: () => _otherPersonPageController.getTracker(),
+            onTap: () {
+              Get.to(
+                TrackerPage(
+                    key: UniqueKey(),
+                    uid: _otherPersonPageController.otherUid,
+                    index: 0),
+                // TrackerAndFollowerPage(
+                //   uid: _otherPersonPageController.otherUid,
+                //   index: 0,
+                // ),
+                transition: Transition.rightToLeft,
+              );
+            },
           ),
-          Column(children: <Widget>[
-            Text(
-              '$followerCount',
-              style: const TextStyle(
-                fontSize: 18,
-                color: Color.fromARGB(255, 0, 0, 0),
+          InkWell(
+            onTap: (() {
+              Get.to(
+                  TrackerPage(
+                      uid: _otherPersonPageController.otherUid, index: 1),
+                  // TrackerAndFollowerPage(
+                  //   uid: _otherPersonPageController.otherUid,
+                  //   index: 1,
+                  // ),
+                  fullscreenDialog: true);
+            }),
+            child: Column(children: <Widget>[
+              Text(
+                '$followerCount',
+                style: const TextStyle(
+                  fontSize: 18,
+                ),
               ),
-            ),
-            const Text(
-              '粉絲',
-              style:
-                  TextStyle(fontSize: 14, color: Color.fromARGB(255, 0, 0, 0)),
-            ),
-          ]),
+              const Text(
+                '粉絲',
+              ),
+            ]),
+          ),
           Column(children: <Widget>[
             Text(
               '$postCount',
               style: const TextStyle(
                 fontSize: 18,
-                color: Color.fromARGB(255, 0, 0, 0),
               ),
             ),
             const Text(
               '貼文',
-              style:
-                  TextStyle(fontSize: 14, color: Color.fromARGB(255, 0, 0, 0)),
             ),
           ]),
           Column(children: <Widget>[
             Text(
               '$eventCount',
-              style: const TextStyle(
-                fontSize: 18,
-                color: Color.fromARGB(255, 0, 0, 0),
-              ),
             ),
             const Text(
-              '聚集數',
-              style:
-                  TextStyle(fontSize: 14, color: Color.fromARGB(255, 0, 0, 0)),
+              '聚會',
             ),
           ]),
         ],
@@ -365,22 +305,41 @@ class _SliverHeaderDelegate extends SliverPersistentHeaderDelegate {
     return Obx(() => Stack(
           children: <Widget>[
             _otherPersonPageController.userData.value.pic != ""
-                ? Image.network(
-                    _otherPersonPageController.userData.value.pic,
+                ? Image.network(_otherPersonPageController.userData.value.pic,
                     fit: BoxFit.cover,
                     width: MediaQuery.of(context).size.width,
                     height: expandedHeight,
                     errorBuilder: (context, error, stackTrace) =>
                         Text("pic Network Error"),
-                  )
-                : Image.asset(
-                    "assets/images/yunhan.jpg",
-                    fit: BoxFit.cover,
-                    width: MediaQuery.of(context).size.width,
-                    height: expandedHeight,
-                    errorBuilder: (context, error, stackTrace) =>
-                        Text("pic Network Error"),
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Shimmer.fromColors(
+                        baseColor: Colors.grey[300]!,
+                        highlightColor: Colors.grey[100]!,
+                        child: Container(
+                          color: Colors.grey[100],
+                          width: MediaQuery.of(context).size.width,
+                          height: expandedHeight,
+                        ),
+                      );
+                    })
+                : Shimmer.fromColors(
+                    baseColor: Colors.grey[300]!,
+                    highlightColor: Colors.grey[100]!,
+                    child: Container(
+                      color: Colors.grey[100],
+                      width: MediaQuery.of(context).size.width,
+                      height: expandedHeight,
+                    ),
                   ),
+            // : Shimmer.fromColors(
+            //     baseColor: Colors.grey[400]!,
+            //     highlightColor: Colors.grey[200]!,
+            //     child: Container(
+            //       width: MediaQuery.of(context).size.width,
+            //       height: expandedHeight,
+            //     ),
+            //   ),
             Container(
               color: Color.fromARGB(100, 0, 0, 0),
               height: expandedHeight,
@@ -390,16 +349,22 @@ class _SliverHeaderDelegate extends SliverPersistentHeaderDelegate {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 15),
-                    child: Icon(
-                      Icons.menu,
-                      color: Colors.white,
+                  InkWell(
+                    onTap: () => Get.back(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 15),
+                      child: Icon(
+                        Icons.close,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 15),
-                    child: Icon(Icons.more_horiz_outlined, color: Colors.white),
+                    child: Icon(
+                      Icons.more_horiz_outlined,
+                      color: Colors.white,
+                    ),
                   )
                 ],
               ),
@@ -412,7 +377,7 @@ class _SliverHeaderDelegate extends SliverPersistentHeaderDelegate {
                   height: tabbarHeight,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).scaffoldBackgroundColor,
                     borderRadius: BorderRadius.only(
                         topLeft: Radius.circular(45),
                         topRight: Radius.circular(45)),
@@ -426,7 +391,7 @@ class _SliverHeaderDelegate extends SliverPersistentHeaderDelegate {
                             .userData.value.tracker.length,
                         _otherPersonPageController
                             .userData.value.follower.length,
-                        _otherPersonPageController.postCover.value.length,
+                        _otherPersonPageController.postCover.length,
                         0),
                   ),
                 )),
@@ -459,17 +424,19 @@ class _SliverHeaderDelegate extends SliverPersistentHeaderDelegate {
                 right: 20,
                 child: ElevatedButton(
                   onPressed: () {
-                    _otherPersonPageController.isFollow.value
-                        ? _otherPersonPageController.deleteTracker()
-                        : _otherPersonPageController.addTracker();
+                    _otherPersonPageController.addTracker();
                   },
                   child: _otherPersonPageController.isFollow.value
-                      ? Text("已追蹤")
-                      : Text("追蹤"),
+                      ? Text(
+                          "已追蹤",
+                        )
+                      : Text(
+                          "追蹤",
+                        ),
                   style: ElevatedButton.styleFrom(
                       backgroundColor: _otherPersonPageController.isFollow.value
-                          ? Color.fromARGB(255, 149, 147, 147)
-                          : Color.fromARGB(176, 202, 175, 154),
+                          ? Color.fromARGB(176, 149, 147, 147)
+                          : Color.fromARGB(174, 164, 131, 106),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30))),
                 ))

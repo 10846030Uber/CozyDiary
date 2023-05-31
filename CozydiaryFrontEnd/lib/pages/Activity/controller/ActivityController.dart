@@ -7,7 +7,11 @@ import "package:get/get.dart" hide FormData, MultipartFile, Response;
 class ActivityController extends GetxController {
   var loginController = Get.put(LoginController());
   var postCover = <Activity>[].obs;
+  var localPostCover = <Activity>[].obs;
+
   var isLoading = true.obs;
+  var isLocalLoading = true.obs;
+
   late Post postsContext;
   var title = "".obs;
   var content = "".obs;
@@ -21,6 +25,7 @@ class ActivityController extends GetxController {
     getPostCover();
 
     Activity(
+      aid: 0,
       username: "",
       placeLng: 0,
       placeLat: 0,
@@ -33,7 +38,7 @@ class ActivityController extends GetxController {
     super.onInit();
   }
 
-  void getPostCover() async {
+  getPostCover() async {
     try {
       isLoading(true);
       var Posts = await ActivityService.fetchPostCover();
@@ -44,6 +49,20 @@ class ActivityController extends GetxController {
       }
     } finally {
       isLoading(false);
+    }
+  }
+
+  getLocalPostCover(String placeLat, String placeLng) async {
+    try {
+      isLocalLoading(true);
+      var Posts = await ActivityService.fetchLocalPostCover(placeLat, placeLng);
+      if (Posts != null) {
+        if (Posts.status == 200) {
+          localPostCover.value = Posts.data;
+        }
+      }
+    } finally {
+      isLocalLoading(false);
     }
   }
 }

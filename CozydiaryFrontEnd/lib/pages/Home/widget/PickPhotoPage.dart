@@ -1,117 +1,178 @@
 import 'dart:io';
 
+import 'package:cozydiary/pages/Home/widget/ArticlePage.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../controller/createPostController.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart';
 
-import 'ArticlePage.dart';
-import '../controller/PostController.dart';
+class PickPhotoPage extends StatelessWidget {
+  const PickPhotoPage({Key? key}) : super(key: key);
 
-class PickPhotoPage extends StatefulWidget {
-  @override
-  State<PickPhotoPage> createState() => _PickPhotoPageState();
-}
-
-class _PickPhotoPageState extends State<PickPhotoPage> {
   @override
   Widget build(BuildContext context) {
     //Controller
-    final postController = new PostController();
+    final _createPostController = Get.put(CreatePostController());
+    final _refreshController = RefreshController(initialRefresh: false);
 
-    //initState
-    postController.fetchMedia();
+    void _load() async {
+      await _createPostController.loadMorePic();
+
+      _refreshController.loadComplete();
+    }
 
     return SafeArea(
       child: Scaffold(
         appBar: AppBar(
+          title: Text('選擇照片'),
           actions: [
             TextButton(
                 onPressed: () {
-                  if (PostController.pickedList.isEmpty) {
+                  _createPostController.showList.value = [];
+                  _createPostController.showList.value =
+                      _createPostController.pickedList;
+                  if (_createPostController.showList.isEmpty) {
                     Fluttertoast.showToast(
                         msg: '沒選照片',
                         toastLength: Toast.LENGTH_SHORT,
                         gravity: ToastGravity.TOP,
                         timeInSecForIosWeb: 1,
-                        backgroundColor: Colors.black,
-                        textColor: Colors.white,
                         fontSize: 16.0);
                   } else {
-                    print(PostController.pickedList);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const ArticlePage()),
-                    );
+                    Get.to(() => ArticlePage());
+                    // Get.to(() => ArticlePage());
                   }
                 },
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Text(
                     '下一步',
-                    style: TextStyle(color: Colors.white),
+                    style: Theme.of(context).textTheme.labelLarge,
                   ),
                 ))
           ],
         ),
         body: Column(
           children: [
-            Expanded(
-              flex: 4,
-              child: Obx(
-                () => Container(
-                  child: postController.isPicked == true
-                      ? postController.currPic[0]
-                      : Container(
-                          color: Colors.white,
+            Obx(() => _createPostController.currPic.isEmpty
+                ? Container(
+                    height: MediaQuery.of(context).size.height * 0.3,
+                    child: Center(child: Text('選擇一張照片吧！')),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Container(
+                      width: MediaQuery.of(context).size.width,
+                      height: MediaQuery.of(context).size.width * 1.05,
+                      decoration: BoxDecoration(
+                        image: DecorationImage(
+                          fit: BoxFit.cover,
+                          image: FileImage(
+                              File(_createPostController.currPic.value)),
                         ),
-                ),
-              ),
-            ),
+                      ),
+                    ),
+                  )),
             Obx(
               () => Expanded(
                 flex: 6,
-                child: GridView.builder(
-                    itemCount: PostController.mediaList.length,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3),
-                    itemBuilder: (BuildContext context, int i) {
-                      return Obx(
-                        () => GestureDetector(
-                            onTap: () {
-                              postController.isPicked.value = true;
-                              postController.changeCurrPic(i);
-                            },
-                            child: Stack(
-                              children: [
-                                Container(
-                                  child: PostController.mediaList[i],
-                                ),
-                                Align(
-                                  alignment: Alignment.topRight,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Container(
-                                      height: 25,
-                                      width: 25,
-                                      decoration: BoxDecoration(
-                                        color: Color.fromARGB(129, 68, 68, 68),
-                                        borderRadius: BorderRadius.all(
-                                            Radius.circular(20)),
-                                      ),
-                                      child: PostController.checkBox[i] == true
-                                          ? Icon(Icons.check_circle,
-                                              color: Colors.blue)
-                                          : null,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )),
-                      );
-                    }),
+                child: _createPostController.isLoading.value == true
+                    ? Center(
+                        child: CircularProgressIndicator(),
+                      )
+                    : Scrollbar(
+                        child: SmartRefresher(
+                          header: WaterDropHeader(),
+                          controller: _refreshController,
+                          enablePullDown: false,
+                          enablePullUp: true,
+                          onLoading: _load,
+                          child: GridView.builder(
+                              itemCount: _createPostController.mediaList.length,
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 3),
+                              itemBuilder: (BuildContext context, int i) {
+                                return Obx(
+                                  () => GestureDetector(
+                                      onTap: () {
+                                        _createPostController.isPicked.value =
+                                            true;
+                                        _createPostController.changeCurrPic(i);
+                                      },
+                                      child: Stack(
+                                        children: [
+                                          Container(
+                                            child: _createPostController
+                                                .mediaList[i],
+                                          ),
+                                          Align(
+                                            alignment: Alignment.topRight,
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.all(8.0),
+                                              child: Container(
+                                                height: 25,
+                                                width: 25,
+                                                decoration: BoxDecoration(
+                                                  color: Color.fromARGB(
+                                                      129, 68, 68, 68),
+                                                  borderRadius:
+                                                      BorderRadius.all(
+                                                          Radius.circular(20)),
+                                                ),
+                                                child: _createPostController
+                                                            .checkBox[i]
+                                                            .value ==
+                                                        true
+                                                    ? Icon(
+                                                        Icons.check_circle,
+                                                        color: Color.fromARGB(
+                                                            147, 26, 26, 26),
+                                                      )
+                                                    : null,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      )),
+                                );
+                              }),
+                        ),
+                      ),
               ),
             ),
+            // Obx(
+            //   () => Expanded(
+            //       flex: 1,
+            //       child: Row(
+            //         children: [
+            //           _createPostController.startNum != 0
+            //               ? Expanded(
+            //                   child: TextButton(
+            //                       onPressed: () {
+            //                         _createPostController.setRange(false);
+            //                       },
+            //                       child: Row(
+            //                         mainAxisAlignment: MainAxisAlignment.center,
+            //                         children: [Icon(Icons.photo), Text('上一頁')],
+            //                       )),
+            //                 )
+            //               : Container(),
+            //           Expanded(
+            //             child: TextButton(
+            //                 onPressed: () {
+            //                   _createPostController.setRange(true);
+            //                 },
+            //                 child: Row(
+            //                   mainAxisAlignment: MainAxisAlignment.center,
+            //                   children: [Icon(Icons.photo), Text('下一頁')],
+            //                 )),
+            //           ),
+            //         ],
+            //       )),
+            // )
           ],
         ),
       ),
